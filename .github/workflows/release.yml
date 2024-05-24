@@ -1,0 +1,93 @@
+name: pop release
+
+on:
+#  release:
+#    types: [ published ]
+  push:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: release tag to build binaries from
+        required: true
+        # polkadot-v1.12.0
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform.os }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        platform:
+          # Linux
+          - os: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          # macOS
+#          - os: macos-14
+#            target: aarch64-apple-darwin
+#          - os: macos-14
+#            target: x86_64-apple-darwin
+    env:
+      RUSTFLAGS: "${{ matrix.platform.cpu != '' && format('-C target-cpu={0}', matrix.platform.cpu) || '' }} ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' && '-C linker=aarch64-linux-gnu-gcc' || '' }}"
+      path: "target/${{ matrix.platform.target }}/release"
+      package: "polkadot-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
+    steps:
+      - name: Checkout
+        run: |
+          curl -Ls https://github.com/paritytech/polkadot-sdk/archive/refs/tags/${{ inputs.release }}.tar.gz | tar -xz
+          cd polkadot-sdk-${{ inputs.release }}
+
+#      - name: Install packages (Linux)
+#        if: contains(matrix.platform.target, 'linux')
+#        run: |
+#          sudo apt-get install -y protobuf-compiler ${{ contains(matrix.platform.target, 'aarch64') && 'crossbuild-essential-arm64' || '' }}
+#          protoc --version
+#
+#      - name: Install packages (macOS)
+#        if: contains(matrix.platform.target, 'apple')
+#        run: |
+#          brew install protobuf
+#          protoc --version
+
+#      - name: Add target
+#        run: rustup target add ${{ matrix.platform.target }}
+
+      - name: Build polkadot
+        run: cargo build -p polkadot --target ${{ matrix.platform.target }}
+
+      - name: Package binary (Linux)
+        if: contains(matrix.platform.target, 'linux')
+        run: |
+          cd ${{ env.path }}
+          sha256sum polkadot > polkadot.sha256
+          sha256sum polkadot-execute-worker > polkadot-execute-worker.sha256
+          sha256sum polkadot-prepare-worker > polkadot-prepare-worker.sha256
+          tar -czf ${{ env.package }} polkadot polkadot.sha256 polkadot-execute-worker polkadot-execute-worker.sha256 polkadot-prepare-worker polkadot-prepare-worker.sha256
+
+      #
+      #      - name: Package binary (macOS)
+      #        if: contains(matrix.platform.target, 'apple')
+      #        run: |
+      #          cd ${{ env.path }}
+      #          shasum -a 256 pop-node > pop-node.sha256
+      #          tar -czf ${{ env.package }} pop-node pop-node.sha256
+
+#      - name: Build polkadot-parachain
+#        run: cargo build -p polkadot-parachain-bin --target ${{ matrix.platform.target }}
+
+
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: '${{ env.path }}/${{ env.package }}'
+
+#      - name: Add binary to release
+#        if: github.event_name == 'release'
+#        uses: softprops/action-gh-release@v1
+#        with:
+#          files: |
+#            ${{ env.path }}/${{ env.package }}
