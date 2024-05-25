@@ -37,6 +37,14 @@ jobs:
       archive: "${{ matrix.package }}-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
       sha: ${{ contains(matrix.platform.target, 'apple') && 'shasum -a 256' || 'sha256sum' }}
     steps:
+      - name: Free up space
+        shell: bash
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
       # Clone and checkout release
       - id: clone
         name: Clone release
