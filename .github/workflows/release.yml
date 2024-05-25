@@ -9,6 +9,9 @@ on:
       rust: # e.g. '1.77.0'
         description: Rust version
         required: true
+      title: # e.g. 'Polkadot v1.12.0'
+        description: Release title
+        required: true
 
 jobs:
   build:
@@ -33,7 +36,7 @@ jobs:
             target: x86_64-apple-darwin
     env:
       RUSTFLAGS: "${{ matrix.platform.cpu != '' && format('-C target-cpu={0}', matrix.platform.cpu) || '' }} ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' && '-C linker=aarch64-linux-gnu-gcc' || '' }}"
-      path: "target/${{ matrix.platform.target }}/release"
+      path: "target/${{ matrix.platform.target }}/production"
       archive: "${{ matrix.package }}-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
       sha: ${{ contains(matrix.platform.target, 'apple') && 'shasum -a 256' || 'sha256sum' }}
     steps:
@@ -71,7 +74,7 @@ jobs:
       # Build and package
       - name: Build ${{ matrix.package }}
         working-directory: polkadot-sdk
-        run: cargo b -r -p ${{ matrix.package == 'polkadot-parachain' && 'polkadot-parachain-bin' || matrix.package }} -F fast-runtime --target ${{ matrix.platform.target }}
+        run: cargo b --profile=production -p ${{ matrix.package == 'polkadot-parachain' && 'polkadot-parachain-bin' || matrix.package }} -F fast-runtime --target ${{ matrix.platform.target }}
       - name: Package polkadot
         if: matrix.package == 'polkadot'
         working-directory: polkadot-sdk/${{ env.path }}
@@ -99,7 +102,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ github.event.inputs.title }}
           tag_name: ${{ github.event.inputs.release }}
-          body: "Release generated from release tag `${{ github.event.inputs.release }}` (commit: `${{ steps.clone.outputs.rev }}`) and Rust `${{ github.event.inputs.rust }}`. Please see https://github.com/paritytech/polkadot-sdk/releases/tag/${{ github.event.inputs.release }} for release notes."
+          body: "Release generated from release tag `${{ github.event.inputs.release }}` (commit: `${{ steps.clone.outputs.rev }}`) and using Rust `${{ github.event.inputs.rust }}`.\n\nPlease see https://github.com/paritytech/polkadot-sdk/releases/tag/${{ github.event.inputs.release }} for release notes."
           files: | 
             polkadot-sdk/${{ env.path }}/${{ env.archive }}
