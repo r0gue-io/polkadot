@@ -43,7 +43,7 @@ jobs:
         run: |
           git clone --branch ${{ github.event.inputs.release }} --depth 1 https://github.com/paritytech/polkadot-sdk
           cd polkadot-sdk
-          echo "$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "$(git rev-parse --short HEAD | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       # Install packages
       - name: Install packages (Linux)
