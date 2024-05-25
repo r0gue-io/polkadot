@@ -38,9 +38,11 @@ jobs:
       sha: ${{ contains(matrix.platform.target, 'apple') && 'shasum -a 256' || 'sha256sum' }}
     steps:
       # Clone and checkout release
-      - name: Clone release
+      - id: clone
+        name: Clone release
         run: |
           git clone --branch ${{ github.event.inputs.release }} --depth 1 https://github.com/paritytech/polkadot-sdk
+          git rev-parse --short HEAD >> "$GITHUB_OUTPUT"
 
       # Install packages
       - name: Install packages (Linux)
@@ -88,5 +90,6 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          body: "Release generated from release tag ${{ github.event.inputs.release }} (commit: ${{ steps.clone.outputs.output1 }}) and Rust ${{ github.event.inputs.release }}"
           files: | 
             'polkadot-sdk/${{ env.path }}/${{ env.archive }}'
