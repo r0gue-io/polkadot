@@ -54,7 +54,7 @@ jobs:
         run: brew install protobuf
 
       # Configure Rust toolchain
-      - name: Set Rust version and add target
+      - name: Set Rust version
         run: |
           rustup default ${{ github.event.inputs.rust }}
           rustup component add rust-src
@@ -85,13 +85,13 @@ jobs:
         with:
           name: binaries
           path: |
-            'polkadot-sdk/${{ env.path }}/${{ env.archive }}'
+            polkadot-sdk/${{ env.path }}/${{ env.archive }}
 
       # Add package to release
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.release }}
-          body: "Release generated from release tag ${{ github.event.inputs.release }} (commit: ${{ steps.clone.outputs.rev }}) and Rust ${{ github.event.inputs.release }}"
+          body: "Release generated from release tag `${{ github.event.inputs.release }}` (commit: `${{ steps.clone.outputs.rev }}`) and Rust `${{ github.event.inputs.rust }}`. Please see https://github.com/paritytech/polkadot-sdk/releases/tag/${{ github.event.inputs.release }} for release notes."
           files: | 
-            'polkadot-sdk/${{ env.path }}/${{ env.archive }}'
+            polkadot-sdk/${{ env.path }}/${{ env.archive }}
