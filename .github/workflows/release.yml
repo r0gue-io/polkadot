@@ -17,6 +17,9 @@ jobs:
       contents: write
     strategy:
       matrix:
+        package:
+          - polkadot
+          - polkadot-parachain
         platform:
           # Linux
           - os: ubuntu-22.04
@@ -31,8 +34,8 @@ jobs:
     env:
       RUSTFLAGS: "${{ matrix.platform.cpu != '' && format('-C target-cpu={0}', matrix.platform.cpu) || '' }} ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' && '-C linker=aarch64-linux-gnu-gcc' || '' }}"
       path: "target/${{ matrix.platform.target }}/release"
-      polkadot-package: "polkadot-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
-      polkadot-parachain-package: "polkadot-parachain-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
+      archive: "${{ matrix.package }}-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
+      sha: ${{ contains(matrix.platform.target, 'apple') && 'shasum -a 256' || 'sha256sum' }}
     steps:
       # Clone and checkout release
       - name: Clone release
@@ -54,61 +57,36 @@ jobs:
           rustup component add rust-src
           rustup target add ${{ matrix.platform.target }} wasm32-unknown-unknown
 
-      # Build and package polkadot
-      - name: Build polkadot
+      # Build and package
+      - name: Build ${{ matrix.package }}
         working-directory: polkadot-sdk
-        run: cargo b -r -p polkadot -F fast-runtime --target ${{ matrix.platform.target }}
-      - name: Package polkadot (Linux)
-        if: contains(matrix.platform.target, 'linux')
-        working-directory: polkadot-sdk
+        run: cargo b -r -p ${{ matrix.package == 'polkadot-parachain' && 'polkadot-parachain-bin' || matrix.package }} -F fast-runtime --target ${{ matrix.platform.target }}
+      - name: Package polkadot
+        if: matrix.package == 'polkadot'
+        working-directory: polkadot-sdk/${{ env.path }}
         run: |
-          cd ${{ env.path }}
-          sha256sum polkadot > polkadot.sha256
-          sha256sum polkadot-execute-worker > polkadot-execute-worker.sha256
-          sha256sum polkadot-prepare-worker > polkadot-prepare-worker.sha256
-          tar -czf ${{ env.polkadot-package }} polkadot polkadot.sha256 polkadot-execute-worker polkadot-execute-worker.sha256 polkadot-prepare-worker polkadot-prepare-worker.sha256
-      - name: Package polkadot (macOS)
-        if: contains(matrix.platform.target, 'apple')
-        working-directory: polkadot-sdk
+          ${{ env.sha }} polkadot > polkadot.sha256
+          ${{ env.sha }} polkadot-execute-worker > polkadot-execute-worker.sha256
+          ${{ env.sha }} polkadot-prepare-worker > polkadot-prepare-worker.sha256
+          tar -czf ${{ env.archive }} polkadot polkadot.sha256 polkadot-execute-worker polkadot-execute-worker.sha256 polkadot-prepare-worker polkadot-prepare-worker.sha256
+      - name: Package polkadot-parachain
+        if: matrix.package == 'polkadot-parachain'
+        working-directory: polkadot-sdk/${{ env.path }}
         run: |
-          cd ${{ env.path }}
-          shasum -a 256 polkadot > polkadot.sha256
-          shasum -a 256 polkadot-execute-worker > polkadot-execute-worker.sha256
-          shasum -a 256 polkadot-prepare-worker > polkadot-prepare-worker.sha256
-          tar -czf ${{ env.polkadot-package }} polkadot polkadot.sha256 polkadot-execute-worker polkadot-execute-worker.sha256 polkadot-prepare-worker polkadot-prepare-worker.sha256
+          ${{ env.sha }} polkadot-parachain > polkadot-parachain.sha256
+          tar -czf ${{ env.archive }} polkadot-parachain polkadot-parachain.sha256
 
-      # Build and package polkadot-parachain
-      - name: Build polkadot-parachain
-        working-directory: polkadot-sdk
-        run: cargo b -r -p polkadot-parachain-bin -F fast-runtime --target ${{ matrix.platform.target }}
-      - name: Package polkadot-parachain (Linux)
-        if: contains(matrix.platform.target, 'linux')
-        working-directory: polkadot-sdk
-        run: |
-          cd ${{ env.path }}
-          sha256sum polkadot-parachain > polkadot-parachain.sha256
-          tar -czf ${{ env.polkadot-parachain-package }} polkadot-parachain polkadot-parachain.sha256
-      - name: Package polkadot-parachain (macOS)
-        if: contains(matrix.platform.target, 'apple')
-        working-directory: polkadot-sdk
-        run: |
-          cd ${{ env.path }}
-          shasum -a 256 polkadot-parachain > polkadot-parachain.sha256
-          tar -czf ${{ env.polkadot-parachain-package }} polkadot-parachain polkadot-parachain.sha256
-
-      # Add packages to workflow
-      - name: Upload packages
+      # Add package to workflow
+      - name: Upload archives
         uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: |
-            'polkadot-sdk/${{ env.path }}/${{ env.polkadot-package }}'
-            'polkadot-sdk/${{ env.path }}/${{ env.polkadot-parachain-package }}'
+            'polkadot-sdk/${{ env.path }}/${{ env.archive }}'
 
-      # Add packages to release
+      # Add package to release
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           files: | 
-            'polkadot-sdk/${{ env.path }}/${{ env.polkadot-package }}'
-            'polkadot-sdk/${{ env.path }}/${{ env.polkadot-parachain-package }}'
+            'polkadot-sdk/${{ env.path }}/${{ env.archive }}'
