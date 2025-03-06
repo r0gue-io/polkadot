@@ -108,7 +108,7 @@ jobs:
       - name: Upload archives
         uses: actions/upload-artifact@v4
         with:
-          name: binaries/${{ env.path }}/${{ env.archive }}
+          name: binaries-${{ matrix.package }}-${{ matrix.platform.target }}
           path: |
             polkadot-sdk/${{ env.path }}/${{ env.archive }}
 
