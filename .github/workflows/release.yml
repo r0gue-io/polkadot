@@ -109,8 +109,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: binaries
-          path: |
-            polkadot-sdk/${{ env.path }}/${{ env.archive }}*
+          pattern: |
+            polkadot-sdk/${{ env.path }}/${{ env.archive }}-*
+          merge-multiple: true
 
       # Add package to release
       - name: Release
