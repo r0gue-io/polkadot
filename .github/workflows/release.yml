@@ -110,8 +110,7 @@ jobs:
         with:
           name: binaries
           path: |
-            polkadot-sdk/${{ env.path }}/${{ env.archive }}-*
-          merge-multiple: true
+            polkadot-sdk/${{ env.path }}/${{ env.archive }}/*.tar.gz
 
       # Add package to release
       - name: Release
