@@ -23,6 +23,7 @@ jobs:
         package:
           - polkadot
           - polkadot-parachain
+          - frame-omni-bencher
         platform:
           # Linux
           - os: ubuntu-22.04
@@ -59,7 +60,9 @@ jobs:
       # Install packages
       - name: Install packages (Linux)
         if: contains(matrix.platform.target, 'linux')
-        run: sudo apt-get install -y protobuf-compiler ${{ contains(matrix.platform.target, 'aarch64') && 'crossbuild-essential-arm64' || '' }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --fix-missing protobuf-compiler ${{ contains(matrix.platform.target, 'aarch64') && 'crossbuild-essential-arm64' || '' }}
       - name: Install packages (macOS)
         if: contains(matrix.platform.target, 'apple')
         run: brew install protobuf
@@ -74,7 +77,12 @@ jobs:
       # Build and package
       - name: Build ${{ matrix.package }}
         working-directory: polkadot-sdk
-        run: cargo b --profile=production -p ${{ matrix.package == 'polkadot-parachain' && 'polkadot-parachain-bin' || matrix.package }} -F fast-runtime --target ${{ matrix.platform.target }}
+        run: |
+          if [[ "${{ matrix.package }}" == "polkadot" || "${{ matrix.package }}" == "polkadot-parachain" ]]; then
+            cargo b --profile=production -p ${{ matrix.package == 'polkadot-parachain' && 'polkadot-parachain-bin' || matrix.package }} -F fast-runtime --target ${{ matrix.platform.target }}
+          else
+            cargo b --profile=production -p ${{ matrix.package }} --target ${{ matrix.platform.target }}
+          fi
       - name: Package polkadot
         if: matrix.package == 'polkadot'
         working-directory: polkadot-sdk/${{ env.path }}
@@ -89,12 +97,18 @@ jobs:
         run: |
           ${{ env.sha }} polkadot-parachain > polkadot-parachain.sha256
           tar -czf ${{ env.archive }} polkadot-parachain polkadot-parachain.sha256
+      - name: Package frame-omni-bencher
+        if: matrix.package == 'frame-omni-bencher'
+        working-directory: polkadot-sdk/${{ env.path }}
+        run: |
+          ${{ env.sha }} frame-omni-bencher > frame-omni-bencher.sha256
+          tar -czf ${{ env.archive }} frame-omni-bencher frame-omni-bencher.sha256
 
       # Add package to workflow
       - name: Upload archives
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: binaries
+          name: binaries-${{ matrix.package }}-${{ matrix.platform.target }}
           path: |
             polkadot-sdk/${{ env.path }}/${{ env.archive }}
 
