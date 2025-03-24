@@ -119,5 +119,5 @@ jobs:
           name: ${{ github.event.inputs.title }}
           tag_name: ${{ github.event.inputs.release }}
           body: "Release generated from release tag `${{ github.event.inputs.release }}` (commit: `${{ steps.clone.outputs.rev }}`) and using Rust `${{ github.event.inputs.rust }}`.\n\nPlease see https://github.com/paritytech/polkadot-sdk/releases/tag/${{ github.event.inputs.release }} for release notes."
-          files: | 
+          files: |
             polkadot-sdk/${{ env.path }}/${{ env.archive }}

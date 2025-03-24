@@ -1,0 +1,105 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release: # e.g. 'try-runtime-v1.12.0'
+        description: Try-runtime release tag
+        required: true
+      rust: # e.g. '1.77.0'
+        description: Rust version
+        required: true
+      title: # e.g. 'Try Runtime v1.12.0'
+        description: Release title
+        required: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform.os }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        platform:
+          # Linux
+          - os: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          # macOS
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: macos-14
+            target: x86_64-apple-darwin
+    env:
+      RUSTFLAGS: "${{ matrix.platform.cpu != '' && format('-C target-cpu={0}', matrix.platform.cpu) || '' }} ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' && '-C linker=aarch64-linux-gnu-gcc' || '' }}"
+      path: "target/${{ matrix.platform.target }}/production"
+      archive: "try-runtime-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
+      sha: ${{ contains(matrix.platform.target, 'apple') && 'shasum -a 256' || 'sha256sum' }}
+    steps:
+      - name: Free up space
+        shell: bash
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      # Clone and checkout release
+      - id: clone
+        name: Clone release
+        run: |
+          git clone --branch ${{ github.event.inputs.release }} --depth 1 https://github.com/paritytech/try-runtime-cli
+          cd try-runtime-cli
+          echo "rev=$(git rev-parse --short HEAD | tr -d '\n')" >> "$GITHUB_OUTPUT"
+
+      # Configure Rust toolchain
+      - name: Set Rust version
+        run: |
+          rustup default ${{ github.event.inputs.rust }}
+          rustup component add rust-src
+          rustup target add ${{ matrix.platform.target }} wasm32-unknown-unknown
+
+      - name: Add apple target
+        if: matrix.platform.os == 'macos-latest'
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Add musl target
+        if: matrix.platform.os == 'ubuntu-latest'
+        run: rustup target add x86_64-unknown-linux-musl
+
+      - name: Install deps for musl build
+        if: matrix.platform.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools clang build-essential curl llvm-dev libclang-dev linux-headers-generic libsnappy-dev liblz4-dev libzstd-dev libgflags-dev zlib1g-dev libbz2-dev
+          sudo ln -s /usr/bin/g++ /usr/bin/musl-g++
+
+      # Build and package
+      - name: Build try-runtime-cli
+        working-directory: try-runtime-cli
+        run: cargo build --release --target ${{ matrix.platform.target }}
+
+      - name: Package try-runtime
+        working-directory: try-runtime-cli/target/${{ matrix.platform.target }}/release
+        run: |
+          ${{ env.sha }} try-runtime > try-runtime.sha256
+          tar -czf ${{ env.archive }} try-runtime try-runtime.sha256
+
+      # Add package to workflow
+      - name: Upload archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-try-runtime-cli-${{ matrix.platform.target }}
+          path: |
+            try-runtime-cli/target/${{ matrix.platform.target }}/release/try-runtime
+
+      # Add package to release
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.event.inputs.title }}
+          tag_name: ${{ github.event.inputs.release }}
+          body: "Release generated from release tag `${{ github.event.inputs.release }}` (commit: `${{ steps.clone.outputs.rev }}`) and using Rust `${{ github.event.inputs.rust }}`.\n\nPlease see https://github.com/paritytech/try-runtime-cli/releases/tag/${{ github.event.inputs.release }} for release notes."
+          files: |
+            try-runtime-cli/target/${{ matrix.platform.target }}/release/${{ env.archive }}
