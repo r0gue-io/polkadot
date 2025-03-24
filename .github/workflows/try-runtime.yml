@@ -76,7 +76,7 @@ jobs:
           sudo ln -s /usr/bin/g++ /usr/bin/musl-g++
 
       # Build and package
-      - name: Build try-runtime-cli
+      - name: Build Try Runtime CLI
         working-directory: try-runtime-cli
         run: cargo build --release --target ${{ matrix.platform.target }}
 
