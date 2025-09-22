@@ -22,15 +22,29 @@ jobs:
       matrix:
         package:
           - name: polkadot
-            project: polkadot
+            projects:
+              - polkadot
+            binaries:
+              - polkadot
+              - polkadot-execute-worker
+              - polkadot-prepare-worker
           - name: polkadot-parachain
-            project: polkadot-parachain-bin
+            projects:
+              - polkadot-parachain-bin
+            binaries:
+              - polkadot-parachain
           - name: frame-omni-bencher
-            project: frame-omni-bencher
+            projects:
+              - frame-omni-bencher
+            binaries:
+              - frame-omni-bencher
           - name: polkadot-omni-node
-            project: polkadot-omni-node
-          - name: chain-spec-builder
-            project: staging-chain-spec-builder
+            projects:
+              - polkadot-omni-node
+              - staging-chain-spec-builder
+            binaries:
+              - polkadot-omni-node
+              - chain-spec-builder
         platform:
           # Linux
           - os: ubuntu-24.04
@@ -85,27 +99,27 @@ jobs:
       - name: Build ${{ matrix.package.name }}
         working-directory: polkadot-sdk
         run: |
+          set -xeuo pipefail
+          projects=()
+          for pkg in ${{ join(matrix.package.projects, ' ') }}; do
+            projects+=("-p" "$pkg")
+          done
           if [[ "${{ matrix.package.name }}" == "polkadot" || "${{ matrix.package.name }}" == "polkadot-parachain" ]]; then
-            cargo b --profile=production -p ${{ matrix.package.project }} -F fast-runtime --target ${{ matrix.platform.target }}
+            cargo b --profile=production "${projects[@]}" -F fast-runtime --target ${{ matrix.platform.target }}
           else
-            cargo b --profile=production -p ${{ matrix.package.project }} --target ${{ matrix.platform.target }}
+            cargo b --profile=production "${projects[@]}" --target ${{ matrix.platform.target }}
           fi
 
-      - name: Package polkadot
-        if: matrix.package.name == 'polkadot'
-        working-directory: polkadot-sdk/${{ env.path }}
-        run: |
-          ${{ env.sha }} polkadot > polkadot.sha256
-          ${{ env.sha }} polkadot-execute-worker > polkadot-execute-worker.sha256
-          ${{ env.sha }} polkadot-prepare-worker > polkadot-prepare-worker.sha256
-          tar -czf ${{ env.archive }} polkadot polkadot.sha256 polkadot-execute-worker polkadot-execute-worker.sha256 polkadot-prepare-worker polkadot-prepare-worker.sha256
-
       - name: Package ${{ matrix.package.name }}
-        if: matrix.package.name != 'polkadot'
         working-directory: polkadot-sdk/${{ env.path }}
         run: |
-          ${{ env.sha }} ${{ matrix.package.name }} > ${{ matrix.package.name }}.sha256
-          tar -czf ${{ env.archive }} ${{ matrix.package.name }} ${{ matrix.package.name }}.sha256
+          set -xeuo pipefail
+          binaries=()
+          for bin in ${{ join(matrix.package.binaries, ' ') }}; do
+            binaries+=("$bin" "${bin}.sha256")
+            ${{ env.sha }} "$bin" > "${bin}.sha256"
+          done
+          tar -czf ${{ env.archive }} "$binaries"
 
       # Add package to workflow
       - name: Upload archives
