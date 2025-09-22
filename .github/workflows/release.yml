@@ -119,7 +119,7 @@ jobs:
             binaries+=("$bin" "${bin}.sha256")
             ${{ env.sha }} "$bin" > "${bin}.sha256"
           done
-          tar -czf ${{ env.archive }} "$binaries"
+          tar -czf ${{ env.archive }} "${binaries[@]}"
 
       # Add package to workflow
       - name: Upload archives
