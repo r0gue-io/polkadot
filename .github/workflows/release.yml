@@ -15,6 +15,7 @@ on:
 
 jobs:
   build:
+    name: ${{ matrix.package.name }} (${{ matrix.platform.target }})
     runs-on: ${{ matrix.platform.os }}
     permissions:
       contents: write
