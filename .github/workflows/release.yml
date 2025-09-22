@@ -24,6 +24,8 @@ jobs:
           - polkadot
           - polkadot-parachain
           - frame-omni-bencher
+          - polkadot-omni-node
+          - chain-spec-builder
         platform:
           # Linux
           - os: ubuntu-24.04
@@ -83,6 +85,7 @@ jobs:
           else
             cargo b --profile=production -p ${{ matrix.package }} --target ${{ matrix.platform.target }}
           fi
+
       - name: Package polkadot
         if: matrix.package == 'polkadot'
         working-directory: polkadot-sdk/${{ env.path }}
@@ -91,18 +94,13 @@ jobs:
           ${{ env.sha }} polkadot-execute-worker > polkadot-execute-worker.sha256
           ${{ env.sha }} polkadot-prepare-worker > polkadot-prepare-worker.sha256
           tar -czf ${{ env.archive }} polkadot polkadot.sha256 polkadot-execute-worker polkadot-execute-worker.sha256 polkadot-prepare-worker polkadot-prepare-worker.sha256
-      - name: Package polkadot-parachain
-        if: matrix.package == 'polkadot-parachain'
+
+      - name: Package ${{ matrix.package }}
+        if: matrix.package != 'polkadot'
         working-directory: polkadot-sdk/${{ env.path }}
         run: |
-          ${{ env.sha }} polkadot-parachain > polkadot-parachain.sha256
-          tar -czf ${{ env.archive }} polkadot-parachain polkadot-parachain.sha256
-      - name: Package frame-omni-bencher
-        if: matrix.package == 'frame-omni-bencher'
-        working-directory: polkadot-sdk/${{ env.path }}
-        run: |
-          ${{ env.sha }} frame-omni-bencher > frame-omni-bencher.sha256
-          tar -czf ${{ env.archive }} frame-omni-bencher frame-omni-bencher.sha256
+          ${{ env.sha }} ${{ matrix.package }} > ${{ matrix.package }}.sha256
+          tar -czf ${{ env.archive }} ${{ matrix.package }} ${{ matrix.package }}.sha256
 
       # Add package to workflow
       - name: Upload archives
