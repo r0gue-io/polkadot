@@ -21,9 +21,16 @@ jobs:
     strategy:
       matrix:
         package:
-          - polkadot
-          - polkadot-parachain
-          - frame-omni-bencher
+          - name: polkadot
+            project: polkadot
+          - name: polkadot-parachain
+            project: polkadot-parachain-bin
+          - name: frame-omni-bencher
+            project: frame-omni-bencher
+          - name: polkadot-omni-node
+            project: polkadot-omni-node
+          - name: chain-spec-builder
+            project: staging-chain-spec-builder
         platform:
           # Linux
           - os: ubuntu-24.04
@@ -38,7 +45,7 @@ jobs:
     env:
       RUSTFLAGS: "${{ matrix.platform.cpu != '' && format('-C target-cpu={0}', matrix.platform.cpu) || '' }} ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' && '-C linker=aarch64-linux-gnu-gcc' || '' }}"
       path: "target/${{ matrix.platform.target }}/production"
-      archive: "${{ matrix.package }}-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
+      archive: "${{ matrix.package.name }}-${{ matrix.platform.target }}${{ matrix.platform.cpu != '' && format('-{0}', matrix.platform.cpu) || '' }}.tar.gz"
       sha: ${{ contains(matrix.platform.target, 'apple') && 'shasum -a 256' || 'sha256sum' }}
     steps:
       - name: Free up space
@@ -75,40 +82,36 @@ jobs:
           rustup target add ${{ matrix.platform.target }} wasm32-unknown-unknown
 
       # Build and package
-      - name: Build ${{ matrix.package }}
+      - name: Build ${{ matrix.package.name }}
         working-directory: polkadot-sdk
         run: |
-          if [[ "${{ matrix.package }}" == "polkadot" || "${{ matrix.package }}" == "polkadot-parachain" ]]; then
-            cargo b --profile=production -p ${{ matrix.package == 'polkadot-parachain' && 'polkadot-parachain-bin' || matrix.package }} -F fast-runtime --target ${{ matrix.platform.target }}
+          if [[ "${{ matrix.package.name }}" == "polkadot" || "${{ matrix.package.name }}" == "polkadot-parachain" ]]; then
+            cargo b --profile=production -p ${{ matrix.package.project }} -F fast-runtime --target ${{ matrix.platform.target }}
           else
-            cargo b --profile=production -p ${{ matrix.package }} --target ${{ matrix.platform.target }}
+            cargo b --profile=production -p ${{ matrix.package.project }} --target ${{ matrix.platform.target }}
           fi
+
       - name: Package polkadot
-        if: matrix.package == 'polkadot'
+        if: matrix.package.name == 'polkadot'
         working-directory: polkadot-sdk/${{ env.path }}
         run: |
           ${{ env.sha }} polkadot > polkadot.sha256
           ${{ env.sha }} polkadot-execute-worker > polkadot-execute-worker.sha256
           ${{ env.sha }} polkadot-prepare-worker > polkadot-prepare-worker.sha256
           tar -czf ${{ env.archive }} polkadot polkadot.sha256 polkadot-execute-worker polkadot-execute-worker.sha256 polkadot-prepare-worker polkadot-prepare-worker.sha256
-      - name: Package polkadot-parachain
-        if: matrix.package == 'polkadot-parachain'
+
+      - name: Package ${{ matrix.package.name }}
+        if: matrix.package.name != 'polkadot'
         working-directory: polkadot-sdk/${{ env.path }}
         run: |
-          ${{ env.sha }} polkadot-parachain > polkadot-parachain.sha256
-          tar -czf ${{ env.archive }} polkadot-parachain polkadot-parachain.sha256
-      - name: Package frame-omni-bencher
-        if: matrix.package == 'frame-omni-bencher'
-        working-directory: polkadot-sdk/${{ env.path }}
-        run: |
-          ${{ env.sha }} frame-omni-bencher > frame-omni-bencher.sha256
-          tar -czf ${{ env.archive }} frame-omni-bencher frame-omni-bencher.sha256
+          ${{ env.sha }} ${{ matrix.package.name }} > ${{ matrix.package.name }}.sha256
+          tar -czf ${{ env.archive }} ${{ matrix.package.name }} ${{ matrix.package.name }}.sha256
 
       # Add package to workflow
       - name: Upload archives
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.package }}-${{ matrix.platform.target }}
+          name: binaries-${{ matrix.package.name }}-${{ matrix.platform.target }}
           path: |
             polkadot-sdk/${{ env.path }}/${{ env.archive }}
 
