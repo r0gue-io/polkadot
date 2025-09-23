@@ -15,6 +15,7 @@ on:
 
 jobs:
   build:
+    name: ${{ matrix.package.name }} (${{ matrix.platform.target }})
     runs-on: ${{ matrix.platform.os }}
     permissions:
       contents: write
@@ -119,7 +120,7 @@ jobs:
             binaries+=("$bin" "${bin}.sha256")
             ${{ env.sha }} "$bin" > "${bin}.sha256"
           done
-          tar -czf ${{ env.archive }} "$binaries"
+          tar -czf ${{ env.archive }} "${binaries[@]}"
 
       # Add package to workflow
       - name: Upload archives
