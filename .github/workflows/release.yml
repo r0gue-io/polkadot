@@ -42,10 +42,8 @@ jobs:
           - name: polkadot-omni-node
             projects:
               - polkadot-omni-node
-              - staging-chain-spec-builder
             binaries:
               - polkadot-omni-node
-              - chain-spec-builder
         platform:
           # Linux
           - os: ubuntu-24.04
