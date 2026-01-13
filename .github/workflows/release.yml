@@ -109,10 +109,13 @@ jobs:
         if: contains(matrix.platform.target, 'linux')
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --fix-missing protobuf-compiler ${{ contains(matrix.platform.target, 'aarch64') && 'crossbuild-essential-arm64' || '' }}
+          sudo apt-get install -y --fix-missing protobuf-compiler clang libclang-dev ${{ contains(matrix.platform.target, 'aarch64') && 'crossbuild-essential-arm64' || '' }}
       - name: Install packages (macOS)
         if: contains(matrix.platform.target, 'apple')
-        run: brew install protobuf
+        run: |
+          brew install protobuf llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
 
       # Configure Rust toolchain
       - name: Set Rust version
