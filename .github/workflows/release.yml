@@ -44,6 +44,11 @@ jobs:
               - polkadot-omni-node
             binaries:
               - polkadot-omni-node
+          - name: substrate-node
+            projects:
+              - staging-node-cli
+            binaries:
+              - substrate-node
         platform:
           # Linux
           - os: ubuntu-24.04
